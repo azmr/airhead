@@ -45,7 +45,7 @@
 |      |                           |                                                                                                                          |
 | PASS | removeswap(a,i)           | a faster way to remove elements. Moves last element into index i. Does not preserve ordering.                            |
 |      |                           |                                                                                                                          |
-| PASS | resetlen(a,n)             |                                                                                                                          |
+| PASS | resetlen(a,n)             | set length to a given value                                                                                              |
 |      |                           |                                                                                                                          |
 | PASS | free(a)                   | frees the array contents; also sets the array ptr back to NULL, causing access to fail. The array can be pushed to again |
 | NONE | free2d(a)                 | frees 2d/jagged arrays - all of the subarrays are freed, then the containing array                                       |
@@ -55,7 +55,7 @@
 |      | / Accessing elements /    |                                                                                                                          |
 | ---- | ------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
 | PASS | bc(a,i)                   | checks that i is within the bounds of a                                                                                  |
-| NONE | el(a,i)                   | expands to an l-value of the ith  element in the array, or asserts if i is out of bounds                                 |
+| NONE | get(a,i)                  | expands to an l-value of the ith  element in the array, or asserts if i is out of bounds                                 |
 | PASS | last(a)                   | expands to an l-value of the last element in the array                                                                   |
 |      |                           |                                                                                                                          |
 |      |                           |                                                                                                                          |
@@ -150,7 +150,7 @@ extern "C" {
 #endif/*stdlib*/
 
 #ifndef ahd_int
-typedef unsigned int ahd_int;
+typedef unsigned long long ahd_int;
 #endif
 
 #ifndef ahd_enum
@@ -266,10 +266,18 @@ typedef struct ahd_ts {
 
 
 /* Array processing */
-#define arr_foreach(a,i)               ahd_foreach(ahd_arr,a,i)
-#define arr_foreachr(a,i)              ahd_foreachr(ahd_arr,a,i)
-#define arr_foreachv(a,i,t,v)          ahd_foreachv(ahd_arr,a,i,t,v)
-#define arr_foreachrv(a,i,t,v)         ahd_foreachrv(ahd_arr,a,i,t,v)
+#if 1
+#define arr_each(a,i)                  ahd_each(ahd_arr,a,i)
+#define arr_each_r(a,i)                ahd_each_r(ahd_arr,a,i)
+#define arr_each_v(a,i,t,v)            ahd_each_v(ahd_arr,a,i,t,v)
+#define arr_each_rv(a,i,t,v)           ahd_each_rv(ahd_arr,a,i,t,v)
+#else // 0
+#define arr_foreach(a,i)                  for ahd_each(ahd_arr,a,i)
+#define arr_foreach_r(a,i)                for ahd_each_r(ahd_arr,a,i)
+#define arr_foreach_v(a,i,t,v)            for ahd_each_v(ahd_arr,a,i,t,v)
+#define arr_foreach_rv(a,i,t,v)           for ahd_each_rv(ahd_arr,a,i,t,v)
+#endif // 0
+
 #define arr_mapt(i,ta,a,va,tb,b,vb)    ahd_mapt(ahd_arr,i,ta,a,va,tb,b,vb)
 #define arr_mapv(i,t,a,b,v)            ahd_mapv(ahd_arr,i,t,a,b,v)
 #define arr_mapfn(fn,a,b,udata)        ahd_mapfn(ahd_arr,fn,a,b,udata)
@@ -537,9 +545,11 @@ static inline int ahd__bc(ahd_int len, ahd_int i) { return i >= 0 && i < len; }
 #define AHD_BOUNDS_ASSERT(x) AHD_ASSERT(x)
 #endif/*AHD_BOUNDS_ASSERT*/
 
+// negative numbers allow access from end
 static inline ahd_int
 ahd__get(ahd_int len, signed long long i) {
-	ahd_int index = (ahd_int)((i >= 0) ? i : len + i);
+	ahd_int index = (ahd_int)((i >= 0) ? i
+	                                   : len + i);
 	AHD_BOUNDS_ASSERT(ahd__bc(len, index));
 	return index;
 }
@@ -757,16 +767,19 @@ ahd__sortf(void *array, ahd_int hdr_size, ahd_int el_size, void *member,  ahd_in
 #define ahd_decl(t) t
 #endif
 
-#define ahd_foreach(ht,a,i) \
-	for(ahd_decl(ahd_int) i = 0; i < ahd_len(ht,a); ++i)
-#define ahd_foreachr(ht,a,i) \
-	for(ahd_decl(ahd_int) i = ahd_len(ht,a); i-- != 0 ;)
+// TODO: regularize naming:
+//  - _i => just index
+//  - no suffix => struct with .v and .i
+#define ahd_each(ht,a,i) \
+	(ahd_decl(ahd_int) i = 0; i < ahd_len(ht,a); ++i)
+#define ahd_each_r(ht,a,i) \
+	(ahd_decl(ahd_int) i = ahd_len(ht,a); i-- != 0 ;)
 
-#define ahd_foreachv(ht,a,i,t,v) \
-	for(ahd_decl(ahd_int) i = 0, ahd_foronce(ahd_len(ht,a))++;) \
+#define ahd_each_v(ht,a,i,t,v) \
+	(ahd_decl(ahd_int) i = 0, ahd_foronce(ahd_len(ht,a))++;) \
 	for(t v = (a)[i]; i < ahd_len(ht,a); v = (a)[++i])
-#define ahd_foreachrv(ht,a,i,t,v) \
-	for(ahd_int i##_ = ahd_len(ht,a), i = i##_-1, ahd_foronce(ahd_len(ht,a))++;) \
+#define ahd_each_rv(ht,a,i,t,v) \
+	(ahd_int i##_ = ahd_len(ht,a), i = i##_-1, ahd_foronce(ahd_len(ht,a))++;) \
 	for(t v = (a)[i]; i##_ != 0; i = --i##_-1, v = (a)[ahd_if(i##_, i)])
 
 
@@ -916,11 +929,11 @@ void ahd__filter(void *arr, void *out, ahd_int len, ahd_int el_size, ahd_int hdr
 // NOTE: should be able to have the index and found bools as internally or externally scoped
 // due to the way that comma op works (?)
 #define ahd_find(ht,a,i,t,v,fnd,tr) if(a) \
-			for(ahd_int AHD_LN(ahd_dummy), i = 0, tr = 0, (fnd) = 0); \
+			for(ahd_int AHD_LN(ahd_dummy), i = 0, tr = 0, (fnd) = 0; \
 				i < ahd__len(ht,a) && !(fnd); \
 				tr ? (ahd_if(fnd, (fnd)=&(a)[i]), i) : ++i)
 
-#define ahd_findi(ht,a,i,t,v,tr)   ahd_find(ht, a, i,             t, v, 0,   tr)
+#define ahd_findi(ht,a,i,t,v,tr)   ahd_find(ht, a, i,        t, v, 0,   tr)
 #define ahd_findv(ht,a,t,v,fnd,tr) ahd_find(ht, a, ahd_i_ln, t, v, fnd, tr)
 
 #define ahd_findlast(ht,a,i,t,v,fnd,tr)
