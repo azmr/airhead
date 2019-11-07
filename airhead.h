@@ -992,6 +992,41 @@ ahd_int ahd_rc_dec(ahd_rc *rc, void *raw) {
 	return rc->rc;
 }
 
+// TODO: variants:
+//          - append
+//          - rewrite
+//          - from_offset (covers above 2)
+static size_t
+arr_printf(char *arr[], char const *fmt, ...)
+{
+    AHD_ASSERT(arr);
+
+    size_t len = arr_len(*arr);
+    size_t zero_term = !!(len > 0 && arr[0][len-1] == '\0');
+    size_t cat_start = len - zero_term;
+    size_t chars_available = arr_cap(*arr) - cat_start;
+
+    va_list args;
+    va_start(args, fmt);
+
+    size_t chars_n = vsnprintf(*arr + cat_start, chars_available, fmt, args) + 1; // zero terminator
+    arr_add(*arr, chars_n - zero_term);
+
+    if (chars_n > chars_available)
+    {
+        chars_available = arr_cap(*arr) - cat_start;
+        vsnprintf(*arr + cat_start, chars_available, fmt, args);
+        AHD_ASSERT((chars_n - zero_term) <= chars_available && "didn't grow enough?");
+    }
+
+    va_end(args);
+
+    if (*arr)
+    { arr_last(*arr) = '\0'; }
+
+    return chars_n;
+}
+
 #define AHD_INCLUDED
 #endif/*AHD_INCLUDED*/
 
