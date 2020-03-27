@@ -7,6 +7,7 @@
  * - minimize repeated arguments where possible
  *     - move to functions?
  * - consider adding a temp/register at a[-1]
+ * - add flags to top capacity bits
  */
 
 /*
@@ -146,6 +147,7 @@ extern "C" {
 #if ! (defined(AHD_MEMCPY) && defined(AHD_MEMMOVE))
 #include <string.h>
 #define AHD_MEMCPY memcpy
+#define AHD_MEMCMP memcmp
 #define AHD_MEMMOVE memmove
 #endif/*stdlib*/
 
@@ -264,6 +266,7 @@ typedef struct ahd_ts {
 #define arr_rotr(a, n)              ahd_rotr(ahd_arr,a,n)
 #define arr_rotl(a, n)              ahd_rotl(ahd_arr,a,n)
 
+#define arr_eq(a,b)              ahd_eq(ahd_arr,a,b)
 
 /* Array processing */
 #if 1
@@ -757,6 +760,10 @@ ahd__sortf(void *array, ahd_int hdr_size, ahd_int el_size, void *member,  ahd_in
 	return result;
 }
 
+
+#define ahd_eq(ht,a,b) (sizeof(*(a))  == sizeof(*(b))  && \
+                        ahd_len(ht,a) == ahd_len(ht,b) && \
+                        AHD_MEMCMP((a), (b), ahd_size(ht,a)))
 
 
 #define ahd_foronce(cond) ahd_n_ln = 0; cond && ! ahd_n_ln
