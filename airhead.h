@@ -1020,22 +1020,21 @@ static void ahd__filter(void *arr, void *out, ahd_int len, ahd_int el_size, ahd_
 /*     return rc->rc; */
 /* } */
 
+#ifdef AHD_IMPLEMENTATION
+#include <stdarg.h>
 // TODO: variants:
 //          - append
 //          - rewrite
 //          - from_offset (covers above 2)
 static size_t
-arr_printf(char *arr[], char const *fmt, ...)
+arr_vprintf(char *arr[], char const *fmt, va_list args)
 {
     AHD_ASSERT(arr);
 
-    size_t len = arr_len(*arr);
-    size_t zero_term = !!(len > 0 && arr[0][len-1] == '\0');
-    size_t cat_start = len - zero_term;
+    size_t len             = arr_len(*arr);
+    size_t zero_term       = !!(len > 0 && arr[0][len-1] == '\0');
+    size_t cat_start       = len - zero_term;
     size_t chars_available = arr_cap(*arr) - cat_start;
-
-    va_list args;
-    va_start(args, fmt);
 
     size_t chars_n = vsnprintf(*arr + cat_start, chars_available, fmt, args) + 1; // zero terminator
     arr_add(*arr, chars_n - zero_term);
@@ -1043,17 +1042,80 @@ arr_printf(char *arr[], char const *fmt, ...)
     if (chars_n > chars_available)
     {
         chars_available = arr_cap(*arr) - cat_start;
+        // TODO: allow stb/other alternative
         vsnprintf(*arr + cat_start, chars_available, fmt, args);
         AHD_ASSERT((chars_n - zero_term) <= chars_available && "didn't grow enough?");
     }
 
-    va_end(args);
-
     if (*arr)
-    { arr_last(*arr) = '\0'; }
+    {   arr_last(*arr) = '\0';   }
 
     return chars_n;
 }
+
+// TODO: appendf vs replacef vs print_at_offset_f
+static int
+arr_printf(char *arr[], char const *fmt, ...)
+{
+    va_list args;
+    va_start(args, fmt);
+    int result = (int)arr_vprintf(arr, fmt, args);
+    va_end(args);
+    return result;
+}
+
+static int
+arr_puts(const char *str, char *arr[]) // TODO: restrict ptrs
+{
+    AHD_ASSERT(arr);
+
+    size_t len             = arr_len(*arr);
+    int    zero_term       = len > 0 && arr[0][len-1] == '\0';
+
+    size_t chars_n = strlen(str) + 1; // zero terminator
+    size_t offset  = arr_add(*arr, chars_n - zero_term) - zero_term;
+
+    memcpy(*arr + offset, str, chars_n);
+
+    if (*arr)
+    {   arr_last(*arr) = '\0';   }
+
+    return (int)chars_n;
+}
+
+static int
+arr_putc(int ch, char *arr[])
+{
+    size_t len       = arr_len(*arr);
+    int    zero_term = len > 0 && arr[0][len-1] == '\0';
+
+    if (zero_term)
+    {   arr[0][len-1] = (char)ch;   } // overwrite the null terminator
+    else
+    {   arr_push(*arr, (char)ch);   } // append the new character
+
+    arr_push(*arr, '\0');
+    return ch;
+}
+
+static void
+arr_rewind(char *arr[])
+{   arr_clear(*arr);   }
+
+typedef struct ArrFile {
+    int  (*const printf)(char *arr[], char const *fmt, ...);
+    int  (*const puts  )(char const *str, char *arr[]);
+    int  (*const putc  )(int ch, char *arr[]);
+    void (*const rewind)(char *arr[]);
+} ArrFile;
+
+static ArrFile const Arr_File = {
+    arr_printf,
+    arr_puts,
+    arr_putc,
+    arr_rewind,
+};
+#endif//AHD_IMPLEMENTATION
 
 #define AHD_INCLUDED
 #endif/*AHD_INCLUDED*/
