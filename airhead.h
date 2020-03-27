@@ -140,8 +140,8 @@ extern "C" {
 
 #if ! (defined(AHD_REALLOC) && defined(AHD_FREE))
 #include <stdlib.h>
-#define AHD_REALLOC realloc
-#define AHD_FREE free
+#define AHD_REALLOC(ptr, size) realloc(ptr, size)
+#define AHD_FREE(ptr) free(ptr)
 #endif/*stdlib*/
 
 #if ! (defined(AHD_MEMCPY) && defined(AHD_MEMMOVE))
@@ -356,8 +356,20 @@ typedef struct ahd_ts {
 #define ahd_grow(ht,a,n)      (*((void **)&(a)) = ahd__grow(ahd_if(a, ahd_hdr(ht,a)), (n), \
 			                  sizeof(*(a)), sizeof(ht)))
 
+#if AHD_DEBUG // control whether callsite is recorded
+#define AHD_DBG(fn, ...) fn##_dbg(__VA_ARGS__, int line, char const *file, char const *func, char const *call)
+
+#define ahd__grow(...) ahd__grow_dbg(__VA_ARGS__, __LINE__, __FILE__, __func__, "ahd__grow("#__VA_ARGS__")")
+
+#else //AHD_DEBUG
+#define AHD_DBG(fn, ...) fn(__VA_ARGS__)
+
+#define ahd__grow(...) ahd__grow(__VA_ARGS__)
+#endif//AHD_DEBUG
+
 // TODO: should this be arr ptr, rather than base?
-static void * ahd__grow(void *ptr, ahd_int inc, ahd_int itemsize, ahd_int headersize)//, int cap, int len)
+static void *
+AHD_DBG(ahd__grow, void *ptr, ahd_int inc, ahd_int itemsize, ahd_int headersize)//, int cap, int len)
 // TODO: static int ahd__grow(void **ptr, ahd_int inc, ahd_int itemsize, ahd_int headersize)//, int cap, int len)
 {
 	ahd_arr *head      = (ahd_arr *)ptr;
@@ -444,7 +456,7 @@ ahd__pushstr(char **arr, ahd_int hdr_size, ahd_int el_size, char *str, ahd_int n
 #define ahd__totalcapsize(ht,a) (ahd__cap(ht,a) * sizeof(*(a)) + sizeof(ht) )
 
 // sets the array back to NULL, so any attempts to access contents fail, or the array can be pushed to again
-#define ahd_free(ht,a)        (ahd_if(a, (free(ahd_hdr(ht,a)),0)), (a) = 0)
+#define ahd_free(ht,a)        (ahd_if(a, (AHD_FREE(ahd_hdr(ht,a)),0)), (a) = 0)
 #define ahd_free2dt(ht,ht2,a)    do { \
 		for(ahd_int ahd_i_ln = 0; ahd_i_ln < ahd_len(ht,a); ++ahd_i_ln) \
 		{ ahd_free(ht2,(a)[ahd_i_ln]); } \
@@ -505,7 +517,8 @@ static void ahd__reverse(void *arr, ahd_int hdr_size, ahd_int el_size)
 
 #define ahd_sub(ht,a,f,n)    ahd__sub(ahd__data(ht,a), f, n)
 // TODO: refactor with similar fns
-static void *ahd__dup(void *arr, ahd_int hdr_size, ahd_int el_size) {
+static void *
+AHD_DBG(ahd__dup, void *arr, ahd_int hdr_size, ahd_int el_size) {
 	ahd_arr *head          = (ahd_arr *)((char *)arr - hdr_size);
 	ahd_int total_cap_size = hdr_size + head->cap * el_size;
 	ahd_arr *new_head      = (ahd_arr *) AHD_REALLOC(0, total_cap_size);
