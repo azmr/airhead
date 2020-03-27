@@ -465,7 +465,8 @@ ahd__pushstr(char **arr, ahd_int hdr_size, ahd_int el_size, char *str, ahd_int n
 #define ahd_free2d(ht,a)     ahd_free2dt(ht,ht,a)
 // 3D?
 
-void ahd__free2d(void *outer, ahd_int el_size_outer, ahd_int hdr_size_outer, ahd_int hdr_size_inner)
+static void ahd__free2d(void *outer, ahd_int el_size_outer, ahd_int hdr_size_outer, ahd_int hdr_size_inner)
+#ifdef AHD_IMPLEMENTATION
 {
 	char *p = (char *)outer;
 	if(p) {
@@ -475,11 +476,14 @@ void ahd__free2d(void *outer, ahd_int el_size_outer, ahd_int hdr_size_outer, ahd
 		for(; i < len; ++i, p += el_size_outer) {
 			char *p2 = *(char **)p;
 			if(p2)
-			{ free(p2 - hdr_size_inner); }
+			{ AHD_FREE(p2 - hdr_size_inner); }
 		}
-		free(head);
+		AHD_FREE(head);
 	}
 }
+#else
+;
+#endif// AHD_IMPLEMENTATION
 
 
 #define ahd_union(ht,a,b)
@@ -846,8 +850,8 @@ typedef struct ahd_loop_info {
 } ahd_loop_info;
 typedef int ahd_loopfn(ahd_loop_info *info, void *a, void *b);
 
-void ahd__map(void *arr_a, ahd_int el_size_a, void *arr_b, ahd_int el_size_b,
-		      ahd_int hdr_size, ahd_int len, ahd_loopfn fn, void *udata)
+static void ahd__map(void *arr_a, ahd_int el_size_a, void *arr_b, ahd_int el_size_b,
+                     ahd_int hdr_size, ahd_int len, ahd_loopfn fn, void *udata)
 {
 	char *a = (char *)arr_a, *b = (char *)arr_b;
 	ahd_loop_info info = { 0 };
@@ -876,7 +880,7 @@ void ahd__map(void *arr_a, ahd_int el_size_a, void *arr_b, ahd_int el_size_b,
 #define ahd_reduce(ht,a,ex)
 #define ahd_reducefn(ht,fn,a,acc,udata) ahd__reduce(acc, sizeof(acc), a, sizeof(*(a)), sizeof(ht), ahd_len(ht,a), fn, udata)
 
-void ahd__reduce(void *accum, ahd_int el_size_acc,
+static void ahd__reduce(void *accum, ahd_int el_size_acc,
 		         void *value, ahd_int el_size_val, ahd_int hdr_size,
 		         ahd_int len, ahd_loopfn fn, void *udata)
 {
@@ -929,7 +933,7 @@ void ahd__reduce(void *accum, ahd_int el_size_acc,
 /* 				!tr && ahd_push(ht,b,(a)[i]), ++i, tr = 1) */
 
 #define ahd_filterfn()
-void ahd__filter(void *arr, void *out, ahd_int len, ahd_int el_size, ahd_int hdr_size, ahd_loopfn fn, void *udata) {
+static void ahd__filter(void *arr, void *out, ahd_int len, ahd_int el_size, ahd_int hdr_size, ahd_loopfn fn, void *udata) {
 	char *a = (char *)arr;
 	ahd_loop_info info = { 0 };
 	info.n = len,     info.udata = udata;
@@ -1001,16 +1005,20 @@ void ahd__filter(void *arr, void *out, ahd_int len, ahd_int el_size, ahd_int hdr
  */
 
 
-// TODO: make atomic
-ahd_int ahd_rc_inc(ahd_rc *rc)
-{ return ++rc->rc; }
+/* // TODO: make atomic */
+/* static ahd_int ahd_rc_inc(ahd_rc *rc) */
+/* { return ++rc->rc; } */
 
-ahd_int ahd_rc_dec(ahd_rc *rc, void *raw) {
-	void (*freefn)(void*) = rc->free ? rc->free : free;
-	if(--rc->rc == 0)
-	{ freefn(raw); }
-	return rc->rc;
-}
+/* static ahd_int ahd_rc_dec(ahd_rc *rc, void *raw) { */
+/* 	void (*freefn)(void*) = rc->free ? rc->free : AHD_FREE; */
+/* 	if(--rc->rc == 0) */
+/* 	{ */
+/*         (rc->free */
+/*          ? rc->free(raw) */
+/*          : AHD_FREE(raw)); */
+/*     } */
+/*     return rc->rc; */
+/* } */
 
 // TODO: variants:
 //          - append
