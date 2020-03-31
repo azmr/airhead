@@ -780,7 +780,7 @@ ahd__sortf(void *array, ahd_int hdr_size, ahd_int el_size, void *member,  ahd_in
 
 #define ahd_eq(ht,a,b) (sizeof(*(a))  == sizeof(*(b))  && \
                         ahd_len(ht,a) == ahd_len(ht,b) && \
-                        AHD_MEMCMP((a), (b), ahd_size(ht,a)))
+                        AHD_MEMCMP((a), (b), ahd_size(ht,a)) == 0)
 
 
 #define ahd_foronce(cond) ahd_n_ln = 0; cond && ! ahd_n_ln
