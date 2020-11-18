@@ -151,6 +151,10 @@ extern "C" {
 #define AHD_MEMMOVE memmove
 #endif/*stdlib*/
 
+#ifndef  AHD_VSNPRINTF
+# define AHD_VSNPRINTF(...) vsnprintf(__VA_ARGS__)
+#endif
+
 #ifndef ahd_int
 typedef unsigned long long ahd_int;
 #endif
@@ -226,7 +230,7 @@ typedef struct ahd_ts {
 #define arr_get(a,i)                ahd_get(ahd_arr,a,i)
 #define arr_el(a,i)                 ahd_el(ahd_arr,a,i)
 #define arr_last(a)                 ahd_last(ahd_arr,a)
- 
+
 
 /* Array header/metadata */
 #define arr_hdr(a)                  ahd_hdr(ahd_arr,a)
@@ -375,6 +379,7 @@ AHD_DBG(ahd__grow, void *ptr, ahd_int inc, ahd_int itemsize, ahd_int headersize)
 	ahd_arr *head      = (ahd_arr *)ptr;
 	ahd_int dbl_cap    = ahd_if(ptr, head->cap  * 2);
 	ahd_int min_needed = ahd_if(ptr, head->len) + inc;
+	min_needed         = (min_needed > 64) ? min_needed : 64;
 	ahd_int new_cap    = (dbl_cap > min_needed) ? dbl_cap   : min_needed; // could round to next highest pow2?
 	head               = (ahd_arr *) AHD_REALLOC(ptr, itemsize * new_cap + headersize);
 	if (head) {
@@ -391,7 +396,7 @@ AHD_DBG(ahd__grow, void *ptr, ahd_int inc, ahd_int itemsize, ahd_int headersize)
 #ifdef AHD_BUFFER_OUT_OF_MEMORY
 		AHD_BUFFER_OUT_OF_MEMORY ;
 #endif
-		return (void *)((char*)0 + (headersize)); // try to force a NULL pointer exception later
+		return (char*)(uintptr_t)headersize; // try to force a NULL pointer exception later
 	}
 }
 
@@ -406,8 +411,8 @@ ahd__pushstr(char **arr, ahd_int hdr_size, ahd_int el_size, char *str, ahd_int n
 	while(*(str_++) && (!~n || n--)) {++strLen;}
 
 	if(head->len + strLen + 1 >= head->cap)
-	{ *arr = (char *)ahd__grow(*arr-hdr_size, strLen + 1, el_size, hdr_size); } 
-	
+	{ *arr = (char *)ahd__grow(*arr-hdr_size, strLen + 1, el_size, hdr_size); }
+
 	AHD_MEMCPY(*arr + len, str, strLen);
 
 	*arr[len+strLen] = '\0';
@@ -532,7 +537,7 @@ AHD_DBG(ahd__dup, void *arr, ahd_int hdr_size, ahd_int el_size) {
 #ifdef AHD_BUFFER_OUT_OF_MEMORY
 		AHD_BUFFER_OUT_OF_MEMORY ;
 #endif
-		return (char*)0 + (hdr_size); // try to force a NULL pointer exception later
+		return (char*)(uintptr_t)hdr_size; // try to force a NULL pointer exception later
 	}
 
 }
@@ -962,7 +967,7 @@ static void ahd__filter(void *arr, void *out, ahd_int len, ahd_int el_size, ahd_
 
 #define ahd_findlast(ht,a,i,t,v,fnd,tr)
 /* Usage:
- * f32 *greater_than3; 
+ * f32 *greater_than3;
  * ahd_find(ahd_arr, arr, _, f32, val, greater_than3, found)
  * { found = val > 3.f; }
  * if(greater_than3) { assert(*greater_than3 > 3.f); }
@@ -979,6 +984,7 @@ static void ahd__filter(void *arr, void *out, ahd_int len, ahd_int el_size, ahd_
  */
 
 #define ahd_exitscope continue
+// NOTE: adding to NULL ptr is technically UB
 #define ahd_scope(init,end)            for(init, *ahd_n_ln = 0; ! ahd_n_ln++; end)
 #define ahd_scoped_init(ht,t,a,init)   ahd_scope(t *a = (init), (ahd_free(ht,a),0))
 #define ahd_scoped(ht,t,a)             ahd_scope(t *a = 0,      (ahd_free(ht,a),0))
@@ -1023,7 +1029,8 @@ static void ahd__filter(void *arr, void *out, ahd_int len, ahd_int el_size, ahd_
 #ifdef AHD_IMPLEMENTATION
 #include <stdarg.h>
 // TODO: variants:
-//          - append
+//          - append to current string
+//          - append a separate string (separated by '\0')
 //          - rewrite
 //          - from_offset (covers above 2)
 static size_t
@@ -1036,21 +1043,19 @@ arr_vprintf(char *arr[], char const *fmt, va_list args)
     size_t cat_start       = len - zero_term;
     size_t chars_available = arr_cap(*arr) - cat_start;
 
-    size_t chars_n = vsnprintf(*arr + cat_start, chars_available, fmt, args) + 1; // zero terminator
-    arr_add(*arr, chars_n - zero_term);
+    size_t chars_required = AHD_VSNPRINTF(NULL, 0, fmt, args) + 1; // zero terminator
+    arr_add(*arr, chars_required - zero_term);
 
-    if (chars_n > chars_available)
     {
         chars_available = arr_cap(*arr) - cat_start;
-        // TODO: allow stb/other alternative
-        vsnprintf(*arr + cat_start, chars_available, fmt, args);
-        AHD_ASSERT((chars_n - zero_term) <= chars_available && "didn't grow enough?");
+        size_t chars_printed = AHD_VSNPRINTF(*arr + cat_start, chars_available, fmt, args);
+        AHD_ASSERT((chars_required - zero_term) <= chars_available && "didn't grow enough?");
     }
 
     if (*arr)
     {   arr_last(*arr) = '\0';   }
 
-    return chars_n;
+    return chars_required;
 }
 
 // TODO: appendf vs replacef vs print_at_offset_f
@@ -1129,38 +1134,38 @@ This software is available under 2 licenses -- choose whichever you prefer.
 ------------------------------------------------------------------------------
 ALTERNATIVE A - MIT License
 Copyright (c) 2017 Sean Barrett
-Permission is hereby granted, free of charge, to any person obtaining a copy of 
-this software and associated documentation files (the "Software"), to deal in 
-the Software without restriction, including without limitation the rights to 
-use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies 
-of the Software, and to permit persons to whom the Software is furnished to do 
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+of the Software, and to permit persons to whom the Software is furnished to do
 so, subject to the following conditions:
-The above copyright notice and this permission notice shall be included in all 
+The above copyright notice and this permission notice shall be included in all
 copies or substantial portions of the Software.
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE 
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, 
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE 
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ------------------------------------------------------------------------------
 ALTERNATIVE B - Public Domain (www.unlicense.org)
 This is free and unencumbered software released into the public domain.
-Anyone is free to copy, modify, publish, use, compile, sell, or distribute this 
-software, either in source code form or as a compiled binary, for any purpose, 
+Anyone is free to copy, modify, publish, use, compile, sell, or distribute this
+software, either in source code form or as a compiled binary, for any purpose,
 commercial or non-commercial, and by any means.
-In jurisdictions that recognize copyright laws, the author or authors of this 
-software dedicate any and all copyright interest in the software to the public 
-domain. We make this dedication for the benefit of the public at large and to 
-the detriment of our heirs and successors. We intend this dedication to be an 
-overt act of relinquishment in perpetuity of all present and future rights to 
+In jurisdictions that recognize copyright laws, the author or authors of this
+software dedicate any and all copyright interest in the software to the public
+domain. We make this dedication for the benefit of the public at large and to
+the detriment of our heirs and successors. We intend this dedication to be an
+overt act of relinquishment in perpetuity of all present and future rights to
 this software under copyright law.
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE 
-AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN 
-ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION 
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ------------------------------------------------------------------------------
 */
