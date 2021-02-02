@@ -346,7 +346,7 @@ typedef struct ahd_ts {
 #define ahd_pushstrn(ht,a,str,n)  (*(char **)&(a) = ahd__pushstr(&(a), sizeof(ht), sizeof(*(a)), str,  n))
 #define ahd_pusharray(ht,a,arr)   ahd__pushsize(ht, a, arr, sizeof(arr)/sizeof(*(arr)), sizeof(arr))
 
-#define ahd__pushsize(ht,a,src,len,size) (AHD_MEMCPY((a)+ahd_add(ht,a,len), (src), (size)), ahd__len(ht,a)-(len))
+#define ahd__pushsize(ht,a,src,len,size) (AHD_MEMMOVE((a)+ahd_add(ht,a,len), (src), (size)), ahd__len(ht,a)-(len))
 
 #define ahd_insert(ht,a,i,v)  (ahd_add(ht,a,1),\
 	                           AHD_MEMMOVE((a)+(i)+1, (a)+(i), (ahd__len(ht,a)-(i)-1) * sizeof(*(a)) ),\
@@ -413,7 +413,7 @@ ahd__pushstr(char **arr, ahd_int hdr_size, ahd_int el_size, char *str, ahd_int n
 	if(head->len + strLen + 1 >= head->cap)
 	{ *arr = (char *)ahd__grow(*arr-hdr_size, strLen + 1, el_size, hdr_size); }
 
-	AHD_MEMCPY(*arr + len, str, strLen);
+	AHD_MEMMOVE(*arr + len, str, strLen);
 
 	*arr[len+strLen] = '\0';
 
@@ -532,7 +532,7 @@ AHD_DBG(ahd__dup, void *arr, ahd_int hdr_size, ahd_int el_size) {
 	ahd_int total_cap_size = hdr_size + head->cap * el_size;
 	ahd_arr *new_head      = (ahd_arr *) AHD_REALLOC(0, total_cap_size);
 	if (head)
-	{ return (char *)AHD_MEMCPY(new_head, head, total_cap_size) + hdr_size; }
+	{ return (char *)AHD_MEMMOVE(new_head, head, total_cap_size) + hdr_size; }
 	else {
 #ifdef AHD_BUFFER_OUT_OF_MEMORY
 		AHD_BUFFER_OUT_OF_MEMORY ;
@@ -546,7 +546,7 @@ static void *ahd__sub(void *arr, ahd_int hdr_size, ahd_int el_size, ahd_int firs
 	char *new_arr = (char *)ahd__grow(0, n, el_size, hdr_size);
 	ahd_arr *head = (ahd_arr *)(new_arr - hdr_size);
 	head->len = n;
-	AHD_MEMCPY(new_arr, ((char *)arr + first*el_size), n*el_size);
+	AHD_MEMMOVE(new_arr, ((char *)arr + first*el_size), n*el_size);
 	return new_arr;
 }
 
@@ -615,9 +615,9 @@ static void ahd__memrotr(void *mem, ahd_int el_size, ahd_int len, ahd_int rot_n)
 		size_copied += cpy_size)
 	{
 		char *bytes = (char *)mem + size_copied;
-		AHD_MEMCPY(buf, bytes + n_bytes, cpy_size);
+		AHD_MEMMOVE(buf, bytes + n_bytes, cpy_size);
 		AHD_MEMMOVE(bytes + cpy_size, bytes, n_bytes);
-		AHD_MEMCPY(bytes, buf, cpy_size);
+		AHD_MEMMOVE(bytes, buf, cpy_size);
 	}
 }
 
@@ -810,6 +810,10 @@ ahd__sortf(void *array, ahd_int hdr_size, ahd_int el_size, void *member,  ahd_in
 #define ahd_each_rv(ht,a,i,t,v) \
 	(ahd_int i##_ = ahd_len(ht,a), i = i##_-1, ahd_foronce(ahd_len(ht,a))++;) \
 	for(t v = (a)[i]; i##_ != 0; i = --i##_-1, v = (a)[ahd_if(i##_, i)])
+
+// NOTE: may break if you push to it during iteration
+#define ahd_all(t, v, a) \
+    (t v = (a); v < (a) + ahd_len(a); ++v)
 
 
 // statement
@@ -1070,23 +1074,24 @@ arr_printf(char *arr[], char const *fmt, ...)
 }
 
 static int
-arr_puts(const char *str, char *arr[]) // TODO: restrict ptrs
+arr_puts_n(const char *str, size_t str_len, char *arr[])
 {
     AHD_ASSERT(arr);
+    size_t chars_n   = str_len + 1; // zero terminator
+    size_t len       = arr_len(*arr);
+    int    zero_term = len > 0 && arr[0][len-1] == '\0';
 
-    size_t len             = arr_len(*arr);
-    int    zero_term       = len > 0 && arr[0][len-1] == '\0';
-
-    size_t chars_n = strlen(str) + 1; // zero terminator
     size_t offset  = arr_add(*arr, chars_n - zero_term) - zero_term;
 
-    memcpy(*arr + offset, str, chars_n);
-
-    if (*arr)
-    {   arr_last(*arr) = '\0';   }
+    AHD_MEMMOVE(*arr + offset, str, str_len);
+    arr_last(*arr) = '\0';
 
     return (int)chars_n;
 }
+
+static int
+arr_puts(const char *str, char *arr[]) // TODO: restrict ptrs
+{   return arr_puts_n(str, strlen(str), arr);   }
 
 static int
 arr_putc(int ch, char *arr[])
