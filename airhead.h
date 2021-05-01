@@ -1047,7 +1047,8 @@ arr_vprintf(char *arr[], char const *fmt, va_list args)
     size_t cat_start       = len - zero_term;
     size_t chars_available = arr_cap(*arr) - cat_start;
 
-    size_t chars_required = AHD_VSNPRINTF(NULL, 0, fmt, args) + 1; // zero terminator
+    va_list size_args; va_copy(size_args, args);
+    size_t chars_required = AHD_VSNPRINTF(NULL, 0, fmt, size_args) + 1; // zero terminator
     arr_add(*arr, chars_required - zero_term);
 
     {
