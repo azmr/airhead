@@ -557,27 +557,34 @@ static void *ahd__sub(void *arr, ahd_int hdr_size, ahd_int el_size, ahd_int firs
 
 
 
-#define ahd_bc(ht,a,i) ahd__bc(ahd_len(ht,a), i)
-static inline int ahd__bc(ahd_int len, ahd_int i) { return i >= 0 && i < len; }
-
-#define ahd_get(ht,a,i) (a)[ahd__get(ahd__len(ht,a), i)]
-
 #ifndef AHD_ASSERT
 #define AHD_ASSERT(x) ((x) ? 1 : *(volatile int *)0 == 0)
 #endif/*AHD_ASSERT*/
 
-#ifndef AHD_BOUNDS_ASSERT
-#define AHD_BOUNDS_ASSERT(x) AHD_ASSERT(x)
+#ifndef  AHD_BOUNDS_CHECK
+# define AHD_BOUNDS_CHECK 1
+#endif// AHD_BOUNDS_CHECK
+
+#if AHD_BOUNDS_CHECK
+// NOTE: doing the unsafe len here as the purpose is to fail loudly on error
+// if a is NULL, then it's an illegal access anyway
+static inline ahd_int ahd__bc(ahd_int len, ahd_int i) { AHD_ASSERT(i < len && "bounds check failed"); return i; }
+#else
+# define ahd__bc(ht,a,i) (i)
 #endif/*AHD_BOUNDS_ASSERT*/
 
-// negative numbers allow access from end
-static inline ahd_int
-ahd__get(ahd_int len, signed long long i) {
-	ahd_int index = (ahd_int)((i >= 0) ? i
-	                                   : len + i);
-	AHD_BOUNDS_ASSERT(ahd__bc(len, index));
-	return index;
-}
+#define ahd_bc(ht,a,i) ahd__bc(ahd__len(ht,a), i)
+
+#define ahd_get(ht,a,i) ((a)[ahd__bc(ahd__len(ht,a), i)])
+
+/* // negative numbers allow access from end */
+/* static inline ahd_int */
+/* ahd__get(ahd_int len, signed long long i) { */
+/* 	ahd_int index = (ahd_int)((i >= 0) ? i */
+/* 	                                   : len + i); */
+/* 	AHD_BOUNDS_ASSERT(ahd__bc(len, index)); */
+/* 	return index; */
+/* } */
 
 /******************************************************************************/
 /* Array element rearranging **************************************************/
