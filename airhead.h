@@ -355,7 +355,7 @@ typedef struct ahd_ts {
 /*TODO: #define ahd_push_ts(ht,a,v)   do{ \
 	(ahd_maybegrow(ht,a,1), (a)[ahd__len(ht,a)++] = (v), ahd__len(ht,a)-1)} while(0)*/
 
-#define ahd_needgrow(ht,a,n)  ((a)==0 || ahd__len(ht,a)+(n) >= ahd__cap(ht,a))
+#define ahd_needgrow(ht,a,n)  ((a)==0 || ahd__len(ht,a)+(n) > ahd__cap(ht,a))
 #define ahd_maybegrow(ht,a,n) ahd_if(ahd_needgrow(ht,a,(n)), ahd_grow(ht,a,n))
 #define ahd_grow(ht,a,n)      (*((void **)&(a)) = ahd__grow(ahd_if(a, ahd_hdr(ht,a)), (n), \
 			                  sizeof(*(a)), sizeof(ht)))
