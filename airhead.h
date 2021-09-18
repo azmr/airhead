@@ -361,14 +361,17 @@ typedef struct ahd_ts {
 			                  sizeof(*(a)), sizeof(ht)))
 
 #if AHD_DEBUG // control whether callsite is recorded
-#define AHD_DBG(fn, ...) fn##_dbg(__VA_ARGS__, int line, char const *file, char const *func, char const *call)
+# define AHD_DBG(fn, ...) fn##_dbg(__VA_ARGS__, int line, char const *file, char const *func, char const *call)
 
-#define ahd__grow(...) ahd__grow_dbg(__VA_ARGS__, __LINE__, __FILE__, __func__, "ahd__grow("#__VA_ARGS__")")
+# define ahd__grow(...) ahd__grow_dbg(__VA_ARGS__, __LINE__, __FILE__, __func__, "ahd__grow("#__VA_ARGS__")")
 
+# define AHD_DBG_UNUSED (void)line, (void)file, (void)func, (void)call
 #else //AHD_DEBUG
-#define AHD_DBG(fn, ...) fn(__VA_ARGS__)
+# define AHD_DBG(fn, ...) fn(__VA_ARGS__)
 
-#define ahd__grow(...) ahd__grow(__VA_ARGS__)
+# define ahd__grow(...) ahd__grow(__VA_ARGS__)
+
+# define AHD_DBG_UNUSED
 #endif//AHD_DEBUG
 
 // TODO: should this be arr ptr, rather than base?
@@ -376,6 +379,7 @@ static void *
 AHD_DBG(ahd__grow, void *ptr, ahd_int inc, ahd_int itemsize, ahd_int headersize)//, int cap, int len)
 // TODO: static int ahd__grow(void **ptr, ahd_int inc, ahd_int itemsize, ahd_int headersize)//, int cap, int len)
 {
+    AHD_DBG_UNUSED;
 	ahd_arr *head      = (ahd_arr *)ptr;
 	ahd_int dbl_cap    = ahd_if(ptr, head->cap  * 2);
 	ahd_int min_needed = ahd_if(ptr, head->len) + inc;
@@ -528,6 +532,7 @@ static void ahd__reverse(void *arr, ahd_int hdr_size, ahd_int el_size)
 // TODO: refactor with similar fns
 static void *
 AHD_DBG(ahd__dup, void *arr, ahd_int hdr_size, ahd_int el_size) {
+    AHD_DBG_UNUSED;
 	ahd_arr *head          = (ahd_arr *)((char *)arr - hdr_size);
 	ahd_int total_cap_size = hdr_size + head->cap * el_size;
 	ahd_arr *new_head      = (ahd_arr *) AHD_REALLOC(0, total_cap_size);
