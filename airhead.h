@@ -570,7 +570,7 @@ static void *ahd__sub(void *arr, ahd_int hdr_size, ahd_int el_size, ahd_int firs
 // if a is NULL, then it's an illegal access anyway
 static inline ahd_int ahd__bc(ahd_int len, ahd_int i) { AHD_ASSERT(i < len && "bounds check failed"); return i; }
 #else
-# define ahd__bc(ht,a,i) (i)
+# define ahd__bc(n,i) (i)
 #endif/*AHD_BOUNDS_ASSERT*/
 
 #define ahd_bc(ht,a,i) ahd__bc(ahd__len(ht,a), i)
