@@ -1065,7 +1065,9 @@ arr_vprintf(char *arr[], char const *fmt, va_list args)
 
     {
         chars_available = arr_cap(*arr) - cat_start;
-        size_t chars_printed = AHD_VSNPRINTF(*arr + cat_start, chars_available, fmt, args);
+
+        /* size_t chars_printed = */
+        AHD_VSNPRINTF(*arr + cat_start, (int)chars_available, fmt, args);
         AHD_ASSERT((chars_required - zero_term) <= chars_available && "didn't grow enough?");
     }
 
