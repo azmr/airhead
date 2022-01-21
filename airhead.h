@@ -163,6 +163,9 @@ typedef unsigned long long ahd_int;
 typedef int ahd_enum;
 #endif
 
+//  array ptr
+//       v
+// |-hdr-|------------------------|
 typedef struct ahd_arr {
 	ahd_int cap;
 	ahd_int len;
