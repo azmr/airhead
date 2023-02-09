@@ -280,12 +280,12 @@ typedef struct ahd_ts {
 #define arr_each(a,i)                  ahd_each(ahd_arr,a,i)
 #define arr_each_r(a,i)                ahd_each_r(ahd_arr,a,i)
 #define arr_each_v(a,i,t,v)            ahd_each_v(ahd_arr,a,i,t,v)
-#define arr_each_rv(a,i,t,v)           ahd_each_rv(ahd_arr,a,i,t,v)
+/* #define arr_each_rv(a,i,t,v)           ahd_each_rv(ahd_arr,a,i,t,v) */
 #else // 0
 #define arr_foreach(a,i)                  for ahd_each(ahd_arr,a,i)
 #define arr_foreach_r(a,i)                for ahd_each_r(ahd_arr,a,i)
 #define arr_foreach_v(a,i,t,v)            for ahd_each_v(ahd_arr,a,i,t,v)
-#define arr_foreach_rv(a,i,t,v)           for ahd_each_rv(ahd_arr,a,i,t,v)
+/* #define arr_foreach_rv(a,i,t,v)           for ahd_each_rv(ahd_arr,a,i,t,v) */
 #endif // 0
 
 #define arr_mapt(i,ta,a,va,tb,b,vb)    ahd_mapt(ahd_arr,i,ta,a,va,tb,b,vb)
@@ -821,10 +821,10 @@ ahd__sortf(void *array, ahd_int hdr_size, ahd_int el_size, void *member,  ahd_in
 
 #define ahd_each_v(ht,a,i,t,v) \
 	(ahd_decl(ahd_int) i = 0, ahd_foronce(ahd_len(ht,a))++;) \
-	for(t v = (a)[i]; i < ahd_len(ht,a); v = (a)[++i])
-#define ahd_each_rv(ht,a,i,t,v) \
+    for(t v; i < ahd_len(ht,a) && (v = (a)[i], 1); ++i)
+/* #define ahd_each_rv(ht,a,i,t,v) \
 	(ahd_int i##_ = ahd_len(ht,a), i = i##_-1, ahd_foronce(ahd_len(ht,a))++;) \
-	for(t v = (a)[i]; i##_ != 0; i = --i##_-1, v = (a)[ahd_if(i##_, i)])
+	for(t v = (a)[i]; i##_ != 0; i = --i##_-1, v = (a)[ahd_if(i##_, i)]) */
 
 // NOTE: may break if you push to it during iteration
 #define ahd_all(t, v, a) \
